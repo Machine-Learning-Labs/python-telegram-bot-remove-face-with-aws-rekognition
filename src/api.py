@@ -276,14 +276,3 @@ def get_text_dimensions(text_string, font):
     text_height = font.getmask(text_string).getbbox()[3] + descent
 
     return text_width, text_height
-
-if __name__ == "__main__":
-    """
-    # execute only if run as a script
-    """
-
-    with open('../data/real_event.json') as json_file:
-        event = json.load(json_file)
-
-    result = lambda_handler(event, {})
-    print(result)    

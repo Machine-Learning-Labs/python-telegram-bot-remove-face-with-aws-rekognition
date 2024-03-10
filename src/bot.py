@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# pylint: disable=unused-argument, wrong-import-position
-# This program is dedicated to the public domain under the CC0 license.
 
 import os
 import json
@@ -9,13 +7,25 @@ import logging
 
 from helpers import create_folder_if_not_exists, get_file_extension
 from api import detect_faces
+
 from dotenv import load_dotenv
-from telegram import __version__ as TG_VER
-from telegram import ForceReply, Update
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, CallbackContext, MessageHandler, filters
+from telegram import ForceReply, ReplyKeyboardMarkup, ReplyKeyboardRemove, ReplyKeyboardRemove, Update
+#from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, CallbackContext, MessageHandler, filters
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    ContextTypes,
+    ConversationHandler,
+    MessageHandler,
+    filters,
+)
 
 # Load environment variables from .env file
 load_dotenv()
+
+# create temp folder
+temporary_folder = os.getenv('TMP_FOLDER')
+create_folder_if_not_exists(temporary_folder)
 
 # Initialize the DynamoDB client
 dynamodb = boto3.resource('dynamodb')
@@ -26,14 +36,12 @@ table = dynamodb.Table(table_name)
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# create temp folder
-temporary_folder = os.getenv('TMP_FOLDER')
-create_folder_if_not_exists(temporary_folder)
+EXPLAIN, ANALYZE, PROCESS, DELETE = range(4)
 
 
 # Define a few command handlers. These usually take the two arguments update and
 # context.
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Send a message when the command /start is issued."""
     user = update.effective_user
     user_id = update.effective_user.id
@@ -50,16 +58,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         rf"Hi {user.mention_html()}!",
         reply_markup=ForceReply(selective=True),
     )
+    
+    return ANALYZE
+    
 
-
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Send a message when the command /help is issued."""
     await update.message.reply_text("Help is still not defined :)")
+    
+    return ANALYZE
 
 
-async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the photo and asks for a location."""
     
+    await update.message.reply_text(f"Image received! Look for faces inside.")
     
     user = update.message.from_user
     user_id = update.effective_user.id
@@ -83,16 +96,41 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     # Reply with the number of detected faces
     faces = api_response['FaceDetails']
     await update.message.reply_text(f"Detected {len(faces)} face(s) in the image.")
+    
+    return PROCESS
 
 
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def send_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Echo the user message."""
     await update.message.reply_text(update.message.text)
     
+    return PROCESS
+
+
+async def delete_last_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Echo the user message."""
+    await update.message.reply_text("TODO Delete photo")
     
+    return ConversationHandler.END
+
+
+async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Display the gathered info and end the conversation."""
+    user_data = context.user_data
+    if "choice" in user_data:
+        del user_data["choice"]
+
+    await update.message.reply_text(
+        f"I learned these facts about you: {user_data}Until next time!",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+
+    user_data.clear()
+    return ConversationHandler.END
+
 async def error(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log Errors caused by Updates."""
-    logger.warning('Update "%s" caused error "%s"', update, context.error)    
+    logger.warning('Update "%s" caused error "%s"', update, context.error)
 
 
 def main() -> None:
@@ -106,20 +144,43 @@ def main() -> None:
         return
     
     application = Application.builder().token(bot_token).build()
-
-    # on different commands - answer in Telegram
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(MessageHandler(filters.PHOTO, handle_image))
-
-    # on non command i.e message - echo the message on Telegram
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
     
-    # log all errors
-    application.add_error_handler(error)
+    # Add conversation handler with the states CHOOSING, TYPING_CHOICE and TYPING_REPLY
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            EXPLAIN:[
+                MessageHandler(
+                    filters.TEXT & ~filters.COMMAND,
+                    help_command
+                )
+            ],
+            
+            ANALYZE:[
+                MessageHandler(filters.PHOTO, handle_image)
+            ],
+            
+            PROCESS:[
+                MessageHandler(filters.Regex("^[0-9]$"), send_image),
+            ],
+            
+            DELETE:[
+                MessageHandler(
+                    filters.TEXT & ~(filters.COMMAND | filters.Regex("^Delete$")), 
+                    delete_last_photo)
+            ],
+        },
+        fallbacks=[MessageHandler(filters.Regex("^Done$"), done)],
+    )
+
+    # Conversation handlers
+    application.add_handler(conv_handler)
+    #application.add_handler(CommandHandler("help", help_command))
+    #application.add_error_handler(error)
 
     # Run the bot until the user presses Ctrl-C
     application.run_polling()
+
 
 if __name__ == "__main__":
     main()
