@@ -60,3 +60,4 @@ async def generate_reference(
     img_with_border.save(new_file_name)
 
     return new_file_name
+
