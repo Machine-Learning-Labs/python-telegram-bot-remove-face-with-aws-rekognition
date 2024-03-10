@@ -69,7 +69,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         "Send /start to read this message.\n"
         "Send /cancel to stop talking to me.\n"
         "Send /data to know more about the treatment of data.\n"
-        "Send /contribute to support the developer.\n\n"
+        "Send /contribute to donate 1 USD to support this bot development.\n\n"
         "Are ok with this? (Yes or No)",
         reply_markup=ReplyKeyboardMarkup(
             reply_keyboard, one_time_keyboard=True, input_field_placeholder="Yes or No?"
