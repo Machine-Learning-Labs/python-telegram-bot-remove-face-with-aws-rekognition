@@ -8,7 +8,7 @@ OPACITY = int(255 * TRANSPARENCY)
 border_size = 24
 border_fill = "black"
 reference_color = "red"
-font_file = "Pillow/Tests/fonts/DejaVuSans.ttf"
+font_file = "../assets/DejaVuSans.ttf"
 font_color = (255, 255, 255)
 
 
