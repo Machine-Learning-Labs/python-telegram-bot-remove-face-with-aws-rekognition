@@ -34,6 +34,16 @@ create_folder_if_not_exists(temporary_folder)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     user = update.effective_user
+    user_id = update.effective_user.id
+    
+    # Store user ID in DynamoDB table
+    table.put_item(
+        Item={
+            'user_id': str(user_id),
+            'credits': 10
+        }
+    )
+    
     await update.message.reply_html(
         rf"Hi {user.mention_html()}!",
         reply_markup=ForceReply(selective=True),
