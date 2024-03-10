@@ -16,7 +16,7 @@ from helper_images import generate_reference, generate_blurred
 from helper_aws import detect_faces
 
 from telegram import (
-    LabeledPrice, 
+    LabeledPrice,
     ShippingOption,
     ForceReply,
     ReplyKeyboardMarkup,
@@ -59,7 +59,7 @@ AGREE, PHOTO, REQUEST = range(3)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Starts the conversation and asks the user for authorization."""
     reply_keyboard = [["Yes", "No"]]
-    
+
     await update.message.reply_text(
         "Hi! My name is @FaceRemoverBot.\n"
         "I help you to delete faces from photos.\n"
@@ -71,8 +71,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         "Send /contribute to support the developer.\n\n"
         "Are ok with this? (Yes or No)",
         reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, one_time_keyboard=True, 
-            input_field_placeholder="Yes or No?"
+            reply_keyboard, one_time_keyboard=True, input_field_placeholder="Yes or No?"
         ),
     )
 
@@ -82,10 +81,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def agree(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the selected gender and asks for a photo."""
     user = update.message.from_user
-    
+
     logger.info(user)
     context.user_data["choice"] = True
-    
+
     logger.info("Authorization given %s: %s", user.first_name, update.message.text)
     await update.message.reply_text(
         "Ok, let's go! Please send me a photo with some faces to work on it",
@@ -99,11 +98,11 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the photo"""
 
     logger.info("User send a photo.")
-    
+
     if not context.user_data["choice"]:
         await update.message.reply_text(f"No authorization, no party sorry :(")
         return AGREE
-    
+
     user = update.message.from_user
     await update.message.reply_text(f"Image received! Look for faces inside.")
 
@@ -121,18 +120,18 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     await photo_file.download_to_drive(full_file)
     logger.info("Photo of %s: %s", user.first_name, full_file)
-    
+
     # Call Amazon Rekognition
     api_response = await detect_faces(full_file)
 
     with open(f"{full_file}.json", "w") as json_file:
         json.dump(api_response, json_file, indent=4)
-        
+
     # Reply with the number of detected faces
     faces = api_response["FaceDetails"]
     faces_count = len(faces)
     await update.message.reply_text(f"Detected {faces_count} face(s) in the image.")
-    
+
     context.user_data["full_file"] = full_file
     context.user_data["path_file"] = path_file
     context.user_data["file_id"] = file_id
@@ -143,7 +142,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if faces_count == 0:
         return AGREE
 
-    #if faces_count == 1:
+    # if faces_count == 1:
     #    await update.message.reply_text(f"This is the photo blurred")
     #    return AGREE
 
@@ -159,63 +158,66 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         output_path=path_file,
         original_filename=file_id,
         original_extension=extension_file,
-        api_response=api_response
+        api_response=api_response,
     )
-    
-    
+
     # Backup ok data
     context.user_data["reference_file"] = reference_file
     context.user_data["faces_detail"] = faces_detail
-    
+
     await update.message.reply_photo(
         photo=reference_file,
-        caption="Use this numbers to receive a copy with the faces blurred"
-        )
+        caption="Use this numbers to receive a copy with the faces blurred",
+    )
 
     return REQUEST
 
 
 async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    
     logger.info("User ask a request.")
-    
+
     valid_numbers = []
     user = update.message.from_user
     raw_numbers = update.message.text
     candidate_numbers = re.findall(r"[\d']+", update.message.text)
-    
+
     keys = context.user_data["faces_detail"].keys()
     for candidate in candidate_numbers:
         if int(candidate) in keys:
             valid_numbers.append(int(candidate))
 
-    
     if len(valid_numbers):
-        await update.message.reply_text(f"The valid references numbers are: {valid_numbers}")
+        await update.message.reply_text(
+            f"The valid references numbers are: {valid_numbers}"
+        )
 
         blurried_photo = await generate_blurred(
             image_path=context.user_data["full_file"],
             output_path=context.user_data["path_file"],
             original_filename=context.user_data["file_id"],
             original_extension=context.user_data["extension_file"],
-            faces_detail = context.user_data["faces_detail"],
-            ids_requested=valid_numbers
+            faces_detail=context.user_data["faces_detail"],
+            ids_requested=valid_numbers,
         )
-        
+
         await update.message.reply_photo(
-            photo=blurried_photo,
-            caption="Your photo with faces removed!"
+            photo=blurried_photo, caption="Your photo with faces removed!"
         )
-    
+
     else:
-        await update.message.reply_text("Give a list number like: 1,2,3... and I'll give you a copy of the photo with these faces blurried.")
-    
+        await update.message.reply_text(
+            "Give a list number like: 1,2,3... and I'll give you a copy of the photo with these faces blurried."
+        )
+
     return REQUEST
 
 
 async def give_excuse(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    
-    if context.user_data and context.user_data["choice"] and context.user_data["reference_file"]:
+    if (
+        context.user_data
+        and context.user_data["choice"]
+        and context.user_data["reference_file"]
+    ):
         await update.message.reply_text("I'm not sure if I understand you")
         return REQUEST
 
@@ -224,12 +226,11 @@ async def give_excuse(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Cancels and ends the conversation."""
-    
+
     context.user_data["choice"] = False
     user = update.message.from_user
     logger.info("User %s canceled the conversation.", user.first_name)
-    
-    
+
     await update.message.reply_text(
         "Ok, I'll be around if you need me.\nSimply use /start to start working.",
         reply_markup=ReplyKeyboardRemove(),
@@ -237,14 +238,16 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     return ConversationHandler.END
 
+
 # ##############################################################################
+
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log the error and send a telegram message to notify the developer."""
-    
+
     now = datetime.now()
     current_time = now.strftime("%H:%M:%S")
-    
+
     # Log the error before we do anything else, so we can see it even if something breaks.
     logger.error(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
     logger.error("Exception while handling an update:", exc_info=context.error)
@@ -253,13 +256,17 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     logger.error(str(context.chat_data))
     logger.error(str(context.user_data))
     logger.error("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-    
+
     # Finally, send the message
-    error_message = f"$> Error with user {update_str['message']['chat']['id']} at {current_time}"
-    
+    error_message = (
+        f"$> Error with user {update_str['message']['chat']['id']} at {current_time}"
+    )
+
     await context.bot.send_message(chat_id=developer_chat_id, text=error_message)
 
+
 # ##############################################################################
+
 
 async def start_without_shipping_callback(
     update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -268,10 +275,10 @@ async def start_without_shipping_callback(
     chat_id = update.message.chat_id
     title = "Multi Face Remover Donation"
     description = "A help to avoid ads and limitations in a bot"
-    
+
     # select a payload just for you to recognize its the donation from your bot
     payload = payment_provider_secret
-    
+
     currency = "USD"
     # price in dollars
     price = 1
@@ -283,10 +290,12 @@ async def start_without_shipping_callback(
     await context.bot.send_invoice(
         chat_id, title, description, payload, payment_provider_token, currency, prices
     )
-    
+
 
 # after (optional) shipping, it's the pre-checkout
-async def precheckout_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def precheckout_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Answers the PreQecheckoutQuery"""
     query = update.pre_checkout_query
     # check the payload, is this from your bot?
@@ -298,7 +307,9 @@ async def precheckout_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 # finally, after contacting the payment provider...
-async def successful_payment_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def successful_payment_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Confirms the successful payment."""
     # do something after successfully receiving payment?
     await update.message.reply_text("Thank you for your help!")
@@ -331,22 +342,26 @@ def main() -> None:
         fallbacks=[
             MessageHandler(filters.PHOTO, photo),
             MessageHandler(filters.TEXT & ~filters.COMMAND, give_excuse),
-            CommandHandler("cancel", cancel)
-            ],
+            CommandHandler("cancel", cancel),
+        ],
     )
-    
+
     # Transformation handlers
     application.add_handler(conv_handler)
     application.add_handler(random_handler)
-    
+
     # Contribute handlers
-    application.add_handler(CommandHandler("contribute", start_without_shipping_callback))
+    application.add_handler(
+        CommandHandler("contribute", start_without_shipping_callback)
+    )
     application.add_handler(PreCheckoutQueryHandler(precheckout_callback))
-    application.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback))
-    
+    application.add_handler(
+        MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback)
+    )
+
     # Generic error handler
     application.add_error_handler(error_handler)
-    
+
     # Run the bot until the user presses Ctrl-C
     logger.info("Bot initialized")
     application.run_polling()

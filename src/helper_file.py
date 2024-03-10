@@ -11,6 +11,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 def create_folder_if_not_exists(folder_path: str) -> None:
     """Create a folder if it doesn't already exist."""
     if not os.path.exists(folder_path):
@@ -51,9 +52,10 @@ def delete_old_subfolders(path):
             if latest_modified_time <= hour_ago:
                 try:
                     # Remove the subfolder and its contents recursively
-                    #os.rmdir(folder_path)
+                    # os.rmdir(folder_path)
                     shutil.rmtree(folder_path, ignore_errors=True)
                     logger.info(f"Deleted folder: {folder_path}")
                 except OSError as e:
-                    logger.error(f"Error deleting folder: {folder_path}. Reason: {str(e)}")
-
+                    logger.error(
+                        f"Error deleting folder: {folder_path}. Reason: {str(e)}"
+                    )
