@@ -7,7 +7,9 @@ import logging
 
 from dotenv import load_dotenv
 from helper_file import create_folder_if_not_exists, get_file_extension
+from helper_images import generate_reference
 from helper_aws import detect_faces
+
 from telegram import (
     ForceReply,
     ReplyKeyboardMarkup,
@@ -42,6 +44,7 @@ AGREE, PHOTO, REQUEST = range(3)
 
 # ##############################################################################
 
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Starts the conversation and asks the user for authorization."""
     reply_keyboard = [["Yes", "No"]]
@@ -54,14 +57,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         "Send /cancel to stop talking to me.\n\n"
         "Are ok with this?",
         reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, 
-            one_time_keyboard=True, 
-            input_field_placeholder="Yes or No?"
+            reply_keyboard, one_time_keyboard=True, input_field_placeholder="Yes or No?"
         ),
     )
 
     return AGREE
-    
+
+
 async def agree(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the selected gender and asks for a photo."""
     user = update.message.from_user
@@ -72,20 +74,20 @@ async def agree(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     )
 
     return PHOTO
-    
+
 
 async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the photo"""
-    
+
     logger.info("User send a photo.")
-    
+
     user = update.message.from_user
     await update.message.reply_text(f"Image received! Look for faces inside.")
-    
+
     user = update.message.from_user
     user_id = update.effective_user.id
     file_id = update.message.photo[-1].file_id
-    
+
     create_folder_if_not_exists(temporary_folder)
     photo_file = await update.message.photo[-1].get_file()
     extension_file = get_file_extension(photo_file.file_path)
@@ -106,29 +108,39 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     faces = api_response["FaceDetails"]
     faces_count = len(faces)
     await update.message.reply_text(f"Detected {faces_count} face(s) in the image.")
-    
-    if faces_count==0:
+
+    if faces_count == 0:
         return AGREE
-    
-    if faces_count==1:
+
+    if faces_count == 1:
         await update.message.reply_text(f"This is the photo blurred")
         return AGREE
-    
-    if faces_count>=99:
+
+    if faces_count >= 99:
         await update.message.reply_text(f"Too much faces in this photo")
         return AGREE
-    
+
     await update.message.reply_text(f"This is the reference to specify")
-    
+
+    # generate reference photo
+    reference = generate_reference(
+        image=image,
+        output_path=output_path,
+        extension=file_extension,
+        response=response,
+        imgWidth=imgWidth,
+        imgHeight=imgHeight,
+        footer_text=footer_text,
+    )
+
     return REQUEST
 
 
 async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    
     logger.info("User send a number.")
-    
+
     user = update.message.from_user
-    
+
     return AGREE
 
 
@@ -137,9 +149,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.message.from_user
     logger.info("User %s canceled the conversation.", user.first_name)
     await update.message.reply_text(
-        
-        "Ok, I'll be around if you need me.\nSimply use /start to restart.", 
-        reply_markup=ReplyKeyboardRemove()
+        "Ok, I'll be around if you need me.\nSimply use /start to restart.",
+        reply_markup=ReplyKeyboardRemove(),
     )
 
     return ConversationHandler.END
@@ -154,14 +165,14 @@ def main() -> None:
 
     # Create the Application and pass it your bot's token.
     application = Application.builder().token(bot_token).build()
-    
+
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
             AGREE: [
                 MessageHandler(filters.Regex("^(Yes|YES|Y|y)$"), agree),
                 MessageHandler(filters.Regex("^(No|NO|N|n)$"), cancel),
-                ],
+            ],
             PHOTO: [MessageHandler(filters.PHOTO, photo)],
             REQUEST: [MessageHandler(filters.Regex("^(Yes|YES|Y|y)$"), request)],
         },
@@ -169,7 +180,7 @@ def main() -> None:
     )
 
     application.add_handler(conv_handler)
-    
+
     # Run the bot until the user presses Ctrl-C
     logger.info("Bot initialized")
     application.run_polling()

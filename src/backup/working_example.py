@@ -57,7 +57,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         "Send /cancel to stop talking to me.\n\n"
         "Are you a boy or a girl?",
         reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, one_time_keyboard=True, input_field_placeholder="Boy or Girl?"
+            reply_keyboard,
+            one_time_keyboard=True,
+            input_field_placeholder="Boy or Girl?",
         ),
     )
 
@@ -106,7 +108,10 @@ async def location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.message.from_user
     user_location = update.message.location
     logger.info(
-        "Location of %s: %f / %f", user.first_name, user_location.latitude, user_location.longitude
+        "Location of %s: %f / %f",
+        user.first_name,
+        user_location.latitude,
+        user_location.longitude,
     )
     await update.message.reply_text(
         "Maybe I can visit you sometime! At last, tell me something about yourself."
@@ -156,7 +161,10 @@ def main() -> None:
         entry_points=[CommandHandler("start", start)],
         states={
             GENDER: [MessageHandler(filters.Regex("^(Boy|Girl|Other)$"), gender)],
-            PHOTO: [MessageHandler(filters.PHOTO, photo), CommandHandler("skip", skip_photo)],
+            PHOTO: [
+                MessageHandler(filters.PHOTO, photo),
+                CommandHandler("skip", skip_photo),
+            ],
             LOCATION: [
                 MessageHandler(filters.LOCATION, location),
                 CommandHandler("skip", skip_location),
