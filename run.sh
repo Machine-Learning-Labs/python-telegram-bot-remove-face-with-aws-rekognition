@@ -2,10 +2,9 @@
 
 export AWS_DEFAULT_REGION=eu-west-1
 
-mkdir -p "/var/log/bot"
-#sudo chmod 755 -R /var/log/bot
+log_folder="../bot_logs"
+mkdir -p $log_folder
 
-log_folder="/var/log/bot"
 current_date=$(date +%Y-%m-%d)
 log_file_bot="$log_folder/bot_$current_date.log"
 log_file_scheduler="$log_folder/scheduler_$current_date.log"
