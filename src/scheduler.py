@@ -19,7 +19,7 @@ temporary_folder = os.getenv("TMP_FOLDER")
 
 tl = Timeloop()
 
-@tl.job(interval=timedelta(seconds=10))
+@tl.job(interval=timedelta(seconds=900))
 def sample_job_every_2s():
     logger.info(f"CLEANING photos... current time : {time.ctime()}")
     delete_old_subfolders(temporary_folder)
