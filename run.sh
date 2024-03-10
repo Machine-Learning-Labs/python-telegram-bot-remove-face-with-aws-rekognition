@@ -1,7 +1,9 @@
 #!/bin/bash
 
+export AWS_DEFAULT_REGION=eu-west-1
+
 mkdir -p "/var/log/bot"
-sudo chmod 755 -R /var/log/bot
+#sudo chmod 755 -R /var/log/bot
 
 log_folder="/var/log/bot"
 current_date=$(date +%Y-%m-%d)
