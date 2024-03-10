@@ -1,3 +1,4 @@
+import os
 import logging
 from PIL import Image, ImageDraw, ImageFilter, ImageOps, ImageFont
 
@@ -8,9 +9,11 @@ OPACITY = int(255 * TRANSPARENCY)
 border_size = 24
 border_fill = "black"
 reference_color = "red"
-font_file = "../assets/DejaVuSans.ttf"
 font_color = (255, 255, 255)
 
+script_dir = os.path.dirname(__file__)
+rel_path = "../assets/DejaVuSans.ttf"
+font_file = os.path.join(script_dir, rel_path)
 
 logger = logging.getLogger(__name__)
 
