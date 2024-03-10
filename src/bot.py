@@ -346,7 +346,7 @@ def main() -> None:
     
     # Generic error handler
     application.add_error_handler(error_handler)
-
+    
     # Run the bot until the user presses Ctrl-C
     logger.info("Bot initialized")
     application.run_polling()
