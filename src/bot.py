@@ -94,8 +94,14 @@ async def agree(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     logger.info("agree")
     
     user = update.message.from_user
-
+    user_id = update.effective_user.id
+    
+    logger.info('>>>>>>>>>>>>>>>>>>>>>>>>>')
     logger.info(user)
+    logger.info(user_id)
+    logger.info('>>>>>>>>>>>>>>>>>>>>>>>>>')
+    
+    
     context.user_data["choice"] = True
     now = datetime.now()
 
@@ -144,9 +150,8 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         
         return ConversationHandler.END
 
-    user = update.message.from_user
     await update.message.reply_text(f"Image received! Look for faces inside.")
-
+    
     user = update.message.from_user
     user_id = update.effective_user.id
     file_id = update.message.photo[-1].file_id
@@ -216,6 +221,14 @@ async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     logger.info('request')
     logger.info("User ask a request.")
     
+    user = update.message.from_user
+    user_id = update.effective_user.id
+    
+    logger.info('>>>>>>>>>>>>>>>>>>>>>>>>>')
+    logger.info(user)
+    logger.info(user_id)
+    logger.info('>>>>>>>>>>>>>>>>>>>>>>>>>')
+    
     # Parse numbers
     image_path=context.user_data["full_file"]
     if not os.path.exists(image_path):
@@ -226,7 +239,6 @@ async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         return REQUEST
 
     valid_numbers = []
-    user = update.message.from_user
     raw_numbers = update.message.text
     candidate_numbers = re.findall(r"[\d']+", update.message.text)
 
@@ -270,7 +282,7 @@ async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     
     context.user_data["counter"] += 1
     table.update_item(
-        Key={ 'user_id': str(user['id']), }, 
+        Key={ 'user_id': str(user_id), }, 
         UpdateExpression="SET #count = #count + :increment",
 		ExpressionAttributeNames={"#count": "count"},
 		ExpressionAttributeValues={":increment": 1 }
@@ -288,11 +300,7 @@ async def give_excuse(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     
     logger.info('give_excuse')
     
-    if (
-        context.user_data
-        and context.user_data["choice"]
-        and context.user_data["reference_file"]
-    ):
+    if ("choice" in context.user_data and "reference_file" in context.user_data):
         await update.message.reply_text("I'm not sure if I understand you")
         return REQUEST
 
