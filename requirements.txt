@@ -1,0 +1,4 @@
+#python-telegram-bot[websockets]==20.3
+python-telegram-bot==20.3
+boto3==1.26.150
+botocore==1.29.150
