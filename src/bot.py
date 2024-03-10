@@ -102,8 +102,8 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the photo"""
 
     logger.info("User send a photo.")
-
-    if not context.user_data["choice"]:
+    
+    if not hasattr(context.user_data, "choice"):
         await update.message.reply_text(f"No authorization, no party sorry :(")
         return AGREE
 
