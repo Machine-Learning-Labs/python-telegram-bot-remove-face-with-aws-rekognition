@@ -68,24 +68,21 @@ async def generate_reference(
 
 
 async def generate_blurred(
-        image, 
-        output_path, 
-        extension, 
-        id, 
-        faces, 
-        imgWidth, 
-        imgHeight, 
-        footer_text
+        image_path:str,
+        output_path:str,
+        original_filename:str,
+        original_extension:str,
+        faces_detail:dict,
+        ids_requested:dict
     ) -> str:
         
+    image = Image.open(image_path)
+    imgWidth, imgHeight = image.size
 
-    # TODO adaptar esta función para que tb salve
-    # TODO adaptar esta función para que salve los que recibe como parámetro
-
-    for faceDetail in faces:
+    for id_request in ids_requested:
         # draw = ImageDraw.Draw(image)
 
-        box = faceDetail["BoundingBox"]
+        box = faces_detail[id_request]
         left = imgWidth * box["Left"]
         top = imgHeight * box["Top"]
         width = imgWidth * box["Width"]
@@ -102,11 +99,10 @@ async def generate_blurred(
         # Paste blurred region and save result
         image.paste(blurred, mask=mask)
 
-    save_image(
-        stream=image,
-        path=output_path,
-        name="{}{}".format(id, extension),
-        footer_text=footer_text,
-    )
+    new_file_name=f"{output_path}/{original_filename}-blurried.{original_extension}"
+    img_with_border = ImageOps.expand(image, border=border_size, fill=border_fill)
+    img_with_border.save(new_file_name)
     
-    return f"{id}{extension}"
+    return new_file_name
+    
+    

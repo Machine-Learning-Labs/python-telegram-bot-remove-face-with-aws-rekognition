@@ -10,7 +10,7 @@ import traceback
 
 from dotenv import load_dotenv
 from helper_file import create_folder_if_not_exists, get_file_extension
-from helper_images import generate_reference
+from helper_images import generate_reference, generate_blurred
 from helper_aws import detect_faces
 
 from telegram import (
@@ -121,16 +121,19 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     faces_count = len(faces)
     await update.message.reply_text(f"Detected {faces_count} face(s) in the image.")
     
-    context.user_data["last_photo"] = full_file
+    context.user_data["full_file"] = full_file
+    context.user_data["path_file"] = path_file
+    context.user_data["file_id"] = file_id
+    context.user_data["extension_file"] = extension_file
     context.user_data["api_response"] = api_response
     context.user_data["faces_count"] = faces_count
 
     if faces_count == 0:
         return AGREE
 
-    if faces_count == 1:
-        await update.message.reply_text(f"This is the photo blurred")
-        return AGREE
+    #if faces_count == 1:
+    #    await update.message.reply_text(f"This is the photo blurred")
+    #    return AGREE
 
     if faces_count >= 99:
         await update.message.reply_text(f"Too much faces in this photo")
@@ -147,6 +150,8 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         api_response=api_response
     )
     
+    
+    # Backup ok data
     context.user_data["reference_file"] = reference_file
     context.user_data["faces_detail"] = faces_detail
     
@@ -172,7 +177,26 @@ async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         if int(candidate) in keys:
             valid_numbers.append(int(candidate))
 
-    await update.message.reply_text(f"The valid references numbers are: {','.join(valid_numbers)}")
+    
+    if len(valid_numbers):
+        await update.message.reply_text(f"The valid references numbers are: {valid_numbers}")
+
+        blurried_photo = await generate_blurred(
+            image_path=context.user_data["full_file"],
+            output_path=context.user_data["path_file"],
+            original_filename=context.user_data["file_id"],
+            original_extension=context.user_data["extension_file"],
+            faces_detail = context.user_data["faces_detail"],
+            ids_requested=valid_numbers
+        )
+        
+        await update.message.reply_photo(
+            photo=blurried_photo,
+            caption="Your photo with faces removed!"
+        )
+    
+    else:
+        await update.message.reply_text("Give a list number like: 1,2,3... and I'll give you a copy of the photo with these faces blurried.")
     
     return REQUEST
 
@@ -253,7 +277,7 @@ def main() -> None:
                 MessageHandler(filters.Regex("^(No|NO|no|N|n)$"), cancel),
             ],
             PHOTO: [MessageHandler(filters.PHOTO, photo)],
-            REQUEST: [MessageHandler(filters.Regex("^[1-9][0-9]?$"), request)],
+            REQUEST: [MessageHandler(filters.TEXT & ~filters.COMMAND, request)],
         },
         fallbacks=[
             MessageHandler(filters.PHOTO, photo),
