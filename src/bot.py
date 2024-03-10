@@ -84,6 +84,9 @@ async def agree(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     logger.info(user)
     context.user_data["choice"] = True
+    
+    if not "counter" in context.user_data:
+        context.user_data["counter"] = 0
 
     logger.info("Authorization given %s: %s", user.first_name, update.message.text)
     await update.message.reply_text(
@@ -203,6 +206,12 @@ async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await update.message.reply_photo(
             photo=blurried_photo, caption="Your photo with faces removed!"
         )
+        
+        # A little advertising
+        context.user_data["counter"] += 1
+        if context.user_data["counter"] % 3 == 0:
+            counter = int(context.user_data["counter"])
+            await update.message.reply_text(f"Happy to help you with those {counter} photos! Do you consider to help me by /contribute ?")
 
     else:
         await update.message.reply_text(
@@ -313,6 +322,7 @@ async def successful_payment_callback(
     """Confirms the successful payment."""
     # do something after successfully receiving payment?
     await update.message.reply_text("Thank you for your help!")
+    context.user_data["counter"] = -12
 
 
 # ##############################################################################
