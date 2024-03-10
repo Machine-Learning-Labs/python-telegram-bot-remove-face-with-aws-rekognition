@@ -75,8 +75,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         "Say /start to read this message.\n"
         "Say /cancel to stop talking to me.\n"
         "Say /data to know more about the treatment of data.\n"
-        "Say /donate to support with 1 USD to support this bot development.\n\n"
-        "Say /contribute to know other ways to help and avoid limitations or advertising\n"
+        "Say /donate to support with 1 USD to support this bot development.\n"
+        "Say /contribute to know other ways to help and avoid limitations or advertising\n\n"
         "Are ok with this? (Reply or press: Yes or No)",
         reply_markup=ReplyKeyboardMarkup(
             reply_keyboard,
@@ -404,7 +404,7 @@ async def start_without_shipping_callback(
     
     chat_id = update.message.chat_id
     title = "Multi Face Remover 1 USD Donation"
-    description = "Your privacy is our top priority.\n\nWhen you make a donation to support our identity protection bot, you can be confident that your transaction is secure. We've partnered with trusted platforms like Stripe and Telegram to manage your donation securely. Rest assured, your financial data is never stored on our platform, and the developer receives no personal or financial information from your payment. It's a one-time donation, and your contribution goes directly towards improving and maintaining the bot's services. Your support means everything to us, and we're here to ensure your identity remains safeguarded."
+    description = "Your privacy is our top priority.\n\nWhen you make a donation to support our identity protection bot, you can be confident that your transaction is secure. We've partnered with trusted platforms like Stripe and Telegram to manage your donation securely."
 
     # select a payload just for you to recognize its the donation from your bot
     payload = payment_provider_secret
