@@ -16,10 +16,4 @@ async def detect_faces(image_path):
         Attributes=['ALL']
     )
     
-    print(image_path)
-    print(len(response['FaceDetails']))
-    print(response['FaceDetails'])
-
-    faces = response['FaceDetails']
-    
-    return faces
+    return response

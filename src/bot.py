@@ -3,6 +3,7 @@
 # This program is dedicated to the public domain under the CC0 license.
 
 import os
+import json
 import boto3
 import logging
 
@@ -74,9 +75,13 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     logger.info("Photo of %s: %s", user.first_name, full_file)
     
     # Call Amazon Rekognition
-    faces = await detect_faces(full_file)
+    api_response = await detect_faces(full_file)
+    
+    with open(f"{full_file}.json", 'w') as json_file:
+        json.dump(api_response, json_file, indent=4)
 
     # Reply with the number of detected faces
+    faces = api_response['FaceDetails']
     await update.message.reply_text(f"Detected {len(faces)} face(s) in the image.")
 
 
