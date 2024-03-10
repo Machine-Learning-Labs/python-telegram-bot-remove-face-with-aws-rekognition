@@ -196,7 +196,7 @@ def main() -> None:
                 MessageHandler(filters.Regex("^(No|NO|N|n)$"), cancel),
             ],
             PHOTO: [MessageHandler(filters.PHOTO, photo)],
-            REQUEST: [MessageHandler(filters.Regex("^(Yes|YES|Y|y)$"), request)],
+            REQUEST: [MessageHandler(filters.Regex("^[1-9][0-9]?$"), request)],
         },
         fallbacks=[
             MessageHandler(filters.PHOTO, photo),
