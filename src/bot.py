@@ -9,6 +9,8 @@ import logging
 import traceback
 
 from dotenv import load_dotenv
+from datetime import datetime
+
 from helper_file import create_folder_if_not_exists, get_file_extension
 from helper_images import generate_reference, generate_blurred
 from helper_aws import detect_faces
@@ -203,6 +205,8 @@ async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def give_excuse(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     
+    raise Exception("Date provided can't be in the past")
+    
     if context.user_data and context.user_data["choice"] and context.user_data["reference_file"]:
         await update.message.reply_text("I'm not sure if I understand you")
         return REQUEST
@@ -228,32 +232,24 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log the error and send a telegram message to notify the developer."""
+    
+    now = datetime.now()
+    current_time = now.strftime("%H:%M:%S")
+    
     # Log the error before we do anything else, so we can see it even if something breaks.
+    logger.error(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
     logger.error("Exception while handling an update:", exc_info=context.error)
-
-    # traceback.format_exception returns the usual python message about an exception, but as a
-    # list of strings rather than a single string, so we have to join them together.
-    tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
-    tb_string = "".join(tb_list)
-
-    # Build the message with some markup and additional information about what happened.
-    # You might need to add some logic to deal with messages longer than the 4096 character limit.
     update_str = update.to_dict() if isinstance(update, Update) else str(update)
-    message = (
-        f"An exception was raised while handling an update\n"
-        f"<pre>update = {html.escape(json.dumps(update_str, indent=2, ensure_ascii=False))}"
-        "</pre>\n\n"
-        f"<pre>context.chat_data = {html.escape(str(context.chat_data))}</pre>\n\n"
-        f"<pre>context.user_data = {html.escape(str(context.user_data))}</pre>\n\n"
-        f"<pre>{html.escape(tb_string)}</pre>"
-    )
+    logger.error(json.dumps(update_str, indent=2, ensure_ascii=False))
+    logger.error(str(context.chat_data))
+    logger.error(str(context.user_data))
+    logger.error("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
     
     # Finally, send the message
-    await context.bot.send_message(
-        chat_id=developer_chat_id, 
-        text=message, 
-        parse_mode=ParseMode.HTML
-    )
+    error_message = f"$> Error with user {update_str['message']['chat']['id']} at {current_time}"
+    
+    await context.bot.send_message(chat_id=developer_chat_id, text=error_message)
+
 
 # ##############################################################################
 
