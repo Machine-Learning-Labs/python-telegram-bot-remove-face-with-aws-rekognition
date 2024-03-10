@@ -6,7 +6,7 @@ import os
 import boto3
 import logging
 
-from helpers import create_folder_if_not_exists
+from helpers import create_folder_if_not_exists, get_file_extension
 from dotenv import load_dotenv
 from telegram import __version__ as TG_VER
 from telegram import ForceReply, Update
@@ -47,11 +47,20 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def handle_image2(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Stores the photo and asks for a location."""
+    
+    
     user = update.message.from_user
+    user_id = update.effective_user.id
+    file_id = update.message.photo[-1].file_id
+    
     photo_file = await update.message.photo[-1].get_file()
-    create_folder_if_not_exists(f"{temporary_folder}/algo")
-    await photo_file.download_to_drive(f"{temporary_folder}/algo/user_photo.jpg")
-    logger.info("Photo of %s: %s", user.first_name, "user_photo.jpg")
+    extension_file = get_file_extension(photo_file.file_path)
+    path_file = f"{temporary_folder}/{user_id}"
+    full_file = f"{path_file}/{file_id}.{extension_file}"
+    create_folder_if_not_exists(path_file)
+    
+    await photo_file.download_to_drive(full_file)
+    logger.info("Photo of %s: %s", user.first_name, full_file)
 
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
