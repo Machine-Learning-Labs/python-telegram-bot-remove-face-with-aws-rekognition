@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 
 import os
+import re
+import html
 import json
 import boto3
 import logging
+import traceback
 
 from dotenv import load_dotenv
 from helper_file import create_folder_if_not_exists, get_file_extension
@@ -17,6 +20,7 @@ from telegram import (
     ReplyKeyboardRemove,
     Update,
 )
+from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -38,24 +42,22 @@ load_dotenv()
 bot_token = os.getenv("BOT_TOKEN")
 user_table = os.getenv("BOT_TABLE")
 temporary_folder = os.getenv("TMP_FOLDER")
+developer_chat_id = os.getenv("DEVELOPER_CHAT_ID")
 
 AGREE, PHOTO, REQUEST = range(3)
-
-
-# ##############################################################################
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Starts the conversation and asks the user for authorization."""
     reply_keyboard = [["Yes", "No"]]
-
+    
     await update.message.reply_text(
         "Hi! My name is Multi Face Remover Bot.\nI help you to delete faces from photos."
         "I will change the faces you tell me to blurred areas."
         "The photos will be automatically deleted and will only be returned to you in this conversation."
         "You will always be the owner and responsible for the photos you send.\n\n"
         "Send /cancel to stop talking to me.\n\n"
-        "Are ok with this?",
+        "Are ok with this? (Yes or No)",
         reply_markup=ReplyKeyboardMarkup(
             reply_keyboard, one_time_keyboard=True, 
             input_field_placeholder="Yes or No?"
@@ -157,20 +159,31 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    logger.info("User send a number.")
-
+    
+    logger.info("User ask a request.")
+    
+    valid_numbers = []
     user = update.message.from_user
+    raw_numbers = update.message.text
+    candidate_numbers = re.findall(r"[\d']+", update.message.text)
+    
+    keys = context.user_data["faces_detail"].keys()
+    for candidate in candidate_numbers:
+        if int(candidate) in keys:
+            valid_numbers.append(int(candidate))
 
+    await update.message.reply_text(f"The valid references numbers are: {','.join(valid_numbers)}")
+    
     return REQUEST
 
 
-async def random_response(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-
+async def give_excuse(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    
     if context.user_data and context.user_data["choice"] and context.user_data["reference_file"]:
         await update.message.reply_text("I'm not sure if I understand you")
         return REQUEST
 
-    cancel(update, context)
+    await cancel(update, context)
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -182,11 +195,43 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     
     
     await update.message.reply_text(
-        "Ok, I'll be around if you need me.\nSimply use /start to restart.",
+        "Ok, I'll be around if you need me.\nSimply use /start to start working.",
         reply_markup=ReplyKeyboardRemove(),
     )
 
     return ConversationHandler.END
+
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log the error and send a telegram message to notify the developer."""
+    # Log the error before we do anything else, so we can see it even if something breaks.
+    logger.error("Exception while handling an update:", exc_info=context.error)
+
+    # traceback.format_exception returns the usual python message about an exception, but as a
+    # list of strings rather than a single string, so we have to join them together.
+    tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
+    tb_string = "".join(tb_list)
+
+    # Build the message with some markup and additional information about what happened.
+    # You might need to add some logic to deal with messages longer than the 4096 character limit.
+    update_str = update.to_dict() if isinstance(update, Update) else str(update)
+    message = (
+        f"An exception was raised while handling an update\n"
+        f"<pre>update = {html.escape(json.dumps(update_str, indent=2, ensure_ascii=False))}"
+        "</pre>\n\n"
+        f"<pre>context.chat_data = {html.escape(str(context.chat_data))}</pre>\n\n"
+        f"<pre>context.user_data = {html.escape(str(context.user_data))}</pre>\n\n"
+        f"<pre>{html.escape(tb_string)}</pre>"
+    )
+    
+    # Finally, send the message
+    await context.bot.send_message(
+        chat_id=developer_chat_id, 
+        text=message, 
+        parse_mode=ParseMode.HTML
+    )
+
+# ##############################################################################
 
 
 def main() -> None:
@@ -199,26 +244,29 @@ def main() -> None:
     # Create the Application and pass it your bot's token.
     application = Application.builder().token(bot_token).build()
 
-    random_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), random_response)
+    random_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), give_excuse)
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
             AGREE: [
-                MessageHandler(filters.Regex("^(Yes|YES|Y|y)$"), agree),
-                MessageHandler(filters.Regex("^(No|NO|N|n)$"), cancel),
+                MessageHandler(filters.Regex("^(Yes|yes|YES|Y|y)$"), agree),
+                MessageHandler(filters.Regex("^(No|NO|no|N|n)$"), cancel),
             ],
             PHOTO: [MessageHandler(filters.PHOTO, photo)],
             REQUEST: [MessageHandler(filters.Regex("^[1-9][0-9]?$"), request)],
         },
         fallbacks=[
             MessageHandler(filters.PHOTO, photo),
-            MessageHandler(filters.TEXT & ~filters.COMMAND, random_response),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, give_excuse),
             CommandHandler("cancel", cancel)
             ],
     )
     
     application.add_handler(conv_handler)
     application.add_handler(random_handler)
+    
+    # ...and the error handler
+    application.add_error_handler(error_handler)
 
     # Run the bot until the user presses Ctrl-C
     logger.info("Bot initialized")
