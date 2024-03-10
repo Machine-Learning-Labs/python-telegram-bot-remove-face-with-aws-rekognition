@@ -57,7 +57,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         "Send /cancel to stop talking to me.\n\n"
         "Are ok with this?",
         reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, one_time_keyboard=True, input_field_placeholder="Yes or No?"
+            reply_keyboard, one_time_keyboard=True, 
+            input_field_placeholder="Yes or No?"
         ),
     )
 
@@ -67,6 +68,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def agree(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the selected gender and asks for a photo."""
     user = update.message.from_user
+    
+    logger.info(user)
+    context.user_data["choice"] = True
+    
     logger.info("Authorization given %s: %s", user.first_name, update.message.text)
     await update.message.reply_text(
         "Ok, let's go! Please send me a photo with some faces to work on it",
@@ -80,7 +85,11 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the photo"""
 
     logger.info("User send a photo.")
-
+    
+    if not context.user_data["choice"]:
+        await update.message.reply_text(f"No authorization, no party sorry :(")
+        return AGREE
+    
     user = update.message.from_user
     await update.message.reply_text(f"Image received! Look for faces inside.")
 
@@ -88,6 +97,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_id = update.effective_user.id
     file_id = update.message.photo[-1].file_id
 
+    # TODO mover esto a un método
     create_folder_if_not_exists(temporary_folder)
     photo_file = await update.message.photo[-1].get_file()
     extension_file = get_file_extension(photo_file.file_path)
@@ -97,17 +107,21 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     await photo_file.download_to_drive(full_file)
     logger.info("Photo of %s: %s", user.first_name, full_file)
-
+    
     # Call Amazon Rekognition
     api_response = await detect_faces(full_file)
 
     with open(f"{full_file}.json", "w") as json_file:
         json.dump(api_response, json_file, indent=4)
-
+        
     # Reply with the number of detected faces
     faces = api_response["FaceDetails"]
     faces_count = len(faces)
     await update.message.reply_text(f"Detected {faces_count} face(s) in the image.")
+    
+    context.user_data["last_photo"] = full_file
+    context.user_data["api_response"] = api_response
+    context.user_data["faces_count"] = faces_count
 
     if faces_count == 0:
         return AGREE
@@ -123,15 +137,19 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text(f"This is the reference to specify")
 
     # generate reference photo
-    reference = generate_reference(
-        image=image,
-        output_path=output_path,
-        extension=file_extension,
-        response=response,
-        imgWidth=imgWidth,
-        imgHeight=imgHeight,
-        footer_text=footer_text,
+    reference_file = await generate_reference(
+        image_path=full_file,
+        output_path=path_file,
+        original_filename=file_id,
+        original_extension=extension_file,
+        api_response=api_response
     )
+    
+    context.user_data["reference_file"] = reference_file
+    await update.message.reply_photo(
+        photo=reference_file,
+        caption="Use this numbers to receive a copy with the faces blurred"
+        )
 
     return REQUEST
 
@@ -146,8 +164,12 @@ async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Cancels and ends the conversation."""
+    
+    context.user_data["choice"] = False
     user = update.message.from_user
     logger.info("User %s canceled the conversation.", user.first_name)
+    
+    
     await update.message.reply_text(
         "Ok, I'll be around if you need me.\nSimply use /start to restart.",
         reply_markup=ReplyKeyboardRemove(),
@@ -176,7 +198,10 @@ def main() -> None:
             PHOTO: [MessageHandler(filters.PHOTO, photo)],
             REQUEST: [MessageHandler(filters.Regex("^(Yes|YES|Y|y)$"), request)],
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[
+            MessageHandler(filters.PHOTO, photo),
+            CommandHandler("cancel", cancel)
+            ],
     )
 
     application.add_handler(conv_handler)
