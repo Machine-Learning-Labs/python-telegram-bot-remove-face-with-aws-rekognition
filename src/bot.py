@@ -114,7 +114,6 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_id = update.effective_user.id
     file_id = update.message.photo[-1].file_id
 
-    # TODO mover esto a un método
     create_folder_if_not_exists(temporary_folder)
     photo_file = await update.message.photo[-1].get_file()
     extension_file = get_file_extension(photo_file.file_path)
@@ -356,7 +355,7 @@ async def successful_payment_callback(
     """Confirms the successful payment."""
     # do something after successfully receiving payment?
     await update.message.reply_text("Thank you for your help!")
-    context.user_data["counter"] = -12
+    context.user_data["counter"] = -99
 
 
 # ##############################################################################
