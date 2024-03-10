@@ -290,8 +290,7 @@ async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     
     # A little advertising
     counter = int(context.user_data["counter"])
-    if counter > 1:
-        await update.message.reply_text(f"Happy to help you with those {counter} photos!\nDo you consider to help me by /donate or /contribute ?")
+    await update.message.reply_text(f"Happy to help you with those {counter} photos!\nDo you consider to help me by /donate or /contribute ?")
 
     return REQUEST
 
