@@ -9,11 +9,6 @@ resource "aws_dynamodb_table" "bot_table" {
   
   attribute {
     name = "user_id"
-    type = "N"
-  }
-  
-  attribute {
-    name = "credits"
-    type = "N"
+    type = "S"
   }
 }
