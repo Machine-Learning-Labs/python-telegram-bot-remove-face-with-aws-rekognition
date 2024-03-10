@@ -205,8 +205,6 @@ async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def give_excuse(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     
-    raise Exception("Date provided can't be in the past")
-    
     if context.user_data and context.user_data["choice"] and context.user_data["reference_file"]:
         await update.message.reply_text("I'm not sure if I understand you")
         return REQUEST
