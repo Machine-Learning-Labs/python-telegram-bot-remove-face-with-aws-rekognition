@@ -7,6 +7,7 @@ import boto3
 import logging
 
 from helpers import create_folder_if_not_exists, get_file_extension
+from api import detect_faces
 from dotenv import load_dotenv
 from telegram import __version__ as TG_VER
 from telegram import ForceReply, Update
@@ -55,7 +56,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text("Help is still not defined :)")
 
 
-async def handle_image2(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Stores the photo and asks for a location."""
     
     
@@ -71,11 +72,22 @@ async def handle_image2(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     
     await photo_file.download_to_drive(full_file)
     logger.info("Photo of %s: %s", user.first_name, full_file)
+    
+    # Call Amazon Rekognition
+    faces = await detect_faces(full_file)
+
+    # Reply with the number of detected faces
+    await update.message.reply_text(f"Detected {len(faces)} face(s) in the image.")
 
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Echo the user message."""
     await update.message.reply_text(update.message.text)
+    
+    
+async def error(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log Errors caused by Updates."""
+    logger.warning('Update "%s" caused error "%s"', update, context.error)    
 
 
 def main() -> None:
@@ -93,10 +105,13 @@ def main() -> None:
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(MessageHandler(filters.PHOTO, handle_image2))
+    application.add_handler(MessageHandler(filters.PHOTO, handle_image))
 
     # on non command i.e message - echo the message on Telegram
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+    
+    # log all errors
+    application.add_error_handler(error)
 
     # Run the bot until the user presses Ctrl-C
     application.run_polling()
