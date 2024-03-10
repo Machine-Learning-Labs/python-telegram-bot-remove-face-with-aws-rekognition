@@ -6,6 +6,7 @@ import html
 import json
 import boto3
 import logging
+import botocore
 import traceback
 
 from dotenv import load_dotenv
@@ -38,9 +39,7 @@ from telegram.ext import (
 
 
 # Enable logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
@@ -52,6 +51,8 @@ developer_chat_id = os.getenv("DEVELOPER_CHAT_ID")
 payment_provider_token = os.getenv("PAYMENT_PROVIDER_TOKEN")
 payment_provider_secret = os.getenv("PAYMENT_SECRET")
 
+table_name = os.getenv("BOT_TABLE")
+table = boto3.resource('dynamodb').Table(table_name)
 
 AGREE, PHOTO, REQUEST = range(3)
 
@@ -70,9 +71,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         "Send /cancel to stop talking to me.\n"
         "Send /data to know more about the treatment of data.\n"
         "Send /contribute to donate 1 USD to support this bot development.\n\n"
-        "Are ok with this? (Yes or No)",
+        "Are ok with this? (Reply or press: Yes or No)",
         reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard, one_time_keyboard=True, input_field_placeholder="Yes or No?"
+            reply_keyboard,
+            one_time_keyboard=True,
+            input_field_placeholder="Yes or No?"
         ),
     )
 
@@ -80,11 +83,31 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 async def agree(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Stores the selected gender and asks for a photo."""
+    """Stores the selected answer and asks for a photo."""
     user = update.message.from_user
 
     logger.info(user)
     context.user_data["choice"] = True
+    now = datetime.now()
+
+    Item={
+        'user_id': str(user['id']),
+        'authorize': True,
+        'registration_time': now.strftime("%H:%M:%S"),
+        'registration_date': now.strftime("%d/%m/%Y"),
+        'count': 0
+    }
+    
+    try:
+        table.put_item(
+            Item=Item,
+            ConditionExpression='attribute_not_exists(user_id)'
+        )
+    
+    # Ignore the ConditionalCheckFailedException, bubble up other exceptions.
+    except botocore.exceptions.ClientError as e:
+        if e.response['Error']['Code'] != 'ConditionalCheckFailedException':
+            raise
     
     if not "counter" in context.user_data:
         context.user_data["counter"] = 0
@@ -103,9 +126,13 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     logger.info("User send a photo.")
     
-    if not hasattr(context.user_data, "choice"):
-        await update.message.reply_text(f"No authorization, no party sorry :(")
-        return AGREE
+    if not "choice" in context.user_data:
+        await update.message.reply_text(
+            "Sorry I need your EXPLICIT authorization before work on your photos.\nSimply use /start to start again.",
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        
+        return ConversationHandler.END
 
     user = update.message.from_user
     await update.message.reply_text(f"Image received! Look for faces inside.")
@@ -229,11 +256,18 @@ async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         caption="Your photo with faces removed!"
     )
     
-    # A little advertising
     context.user_data["counter"] += 1
+    table.update_item(
+        Key={ 'user_id': str(user['id']), }, 
+        UpdateExpression="SET #count = #count + :increment",
+		ExpressionAttributeNames={"#count": "count"},
+		ExpressionAttributeValues={":increment": 1 }
+    )
+    
+    # A little advertising
     if context.user_data["counter"] % 3 == 0:
         counter = int(context.user_data["counter"])
-        await update.message.reply_text(f"Happy to help you with those {counter} photos! Do you consider to help me by /contribute ?")
+        await update.message.reply_text(f"Happy to help you with those {counter} photos!\nDo you consider to help me by /contribute ?")
 
     return REQUEST
 
