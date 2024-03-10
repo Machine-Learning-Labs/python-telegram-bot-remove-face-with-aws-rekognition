@@ -159,7 +159,16 @@ async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     user = update.message.from_user
 
-    return AGREE
+    return REQUEST
+
+
+async def random_response(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+
+    if context.user_data and context.user_data["choice"] and context.user_data["reference_file"]:
+        await update.message.reply_text("I'm not sure if I understand you")
+        return REQUEST
+
+    cancel(update, context)
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -188,6 +197,7 @@ def main() -> None:
     # Create the Application and pass it your bot's token.
     application = Application.builder().token(bot_token).build()
 
+    random_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), random_response)
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
@@ -200,11 +210,13 @@ def main() -> None:
         },
         fallbacks=[
             MessageHandler(filters.PHOTO, photo),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, random_response),
             CommandHandler("cancel", cancel)
             ],
     )
-
+    
     application.add_handler(conv_handler)
+    application.add_handler(random_handler)
 
     # Run the bot until the user presses Ctrl-C
     logger.info("Bot initialized")
