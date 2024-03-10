@@ -137,7 +137,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text(f"This is the reference to specify")
 
     # generate reference photo
-    reference_file = await generate_reference(
+    reference_file, faces_detail = await generate_reference(
         image_path=full_file,
         output_path=path_file,
         original_filename=file_id,
@@ -146,6 +146,8 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     )
     
     context.user_data["reference_file"] = reference_file
+    context.user_data["faces_detail"] = faces_detail
+    
     await update.message.reply_photo(
         photo=reference_file,
         caption="Use this numbers to receive a copy with the faces blurred"
