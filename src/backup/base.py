@@ -77,7 +77,9 @@ async def regular_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     """Ask the user for info about the selected predefined choice."""
     text = update.message.text
     context.user_data["choice"] = text
-    await update.message.reply_text(f"Your {text.lower()}? Yes, I would love to hear about that!")
+    await update.message.reply_text(
+        f"Your {text.lower()}? Yes, I would love to hear about that!"
+    )
 
     return TYPING_REPLY
 
@@ -91,7 +93,9 @@ async def custom_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return TYPING_CHOICE
 
 
-async def received_information(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def received_information(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
     """Store info provided by user and ask for the next category."""
     user_data = context.user_data
     text = update.message.text
@@ -135,13 +139,15 @@ def main() -> None:
         states={
             CHOOSING: [
                 MessageHandler(
-                    filters.Regex("^(Age|Favourite colour|Number of siblings)$"), regular_choice
+                    filters.Regex("^(Age|Favourite colour|Number of siblings)$"),
+                    regular_choice,
                 ),
                 MessageHandler(filters.Regex("^Something else...$"), custom_choice),
             ],
             TYPING_CHOICE: [
                 MessageHandler(
-                    filters.TEXT & ~(filters.COMMAND | filters.Regex("^Done$")), regular_choice
+                    filters.TEXT & ~(filters.COMMAND | filters.Regex("^Done$")),
+                    regular_choice,
                 )
             ],
             TYPING_REPLY: [
