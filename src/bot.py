@@ -15,9 +15,10 @@ Press Ctrl-C on the command line or send a signal to the process to stop the
 bot.
 """
 
-import logging
 import os
-
+import boto3
+import logging
+from dotenv import load_dotenv
 from telegram import __version__ as TG_VER
 
 try:
@@ -34,18 +35,17 @@ if __version_info__ < (20, 0, 0, "alpha", 1):
 from telegram import ForceReply, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
+# Load environment variables from .env file
+load_dotenv()
 
 # Initialize the DynamoDB client
 dynamodb = boto3.resource('dynamodb')
-table_name = 'your_table_name'  # Replace with your DynamoDB table name
+table_name = os.getenv('BOT_TABLE')
 table = dynamodb.Table(table_name)
 
 # Enable logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 
 # Define a few command handlers. These usually take the two arguments update and
 # context.
@@ -72,13 +72,13 @@ def main() -> None:
     """Start the bot."""
     
     # Create the Application and pass it your bot's token.
-    bot_token = os.environ.get('BOT_TOKEN')
+    bot_token = os.getenv('BOT_TOKEN')
 
     if bot_token is None:
         print("Bot token not found in environment variable.")
         return
     
-    application = Application.builder().token("").build()
+    application = Application.builder().token(bot_token).build()
 
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
@@ -93,3 +93,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    
