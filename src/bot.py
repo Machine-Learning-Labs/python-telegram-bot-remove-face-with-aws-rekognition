@@ -16,19 +16,23 @@ from helper_images import generate_reference, generate_blurred
 from helper_aws import detect_faces
 
 from telegram import (
+    LabeledPrice, 
+    ShippingOption,
     ForceReply,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
     ReplyKeyboardRemove,
     Update,
 )
-from telegram.constants import ParseMode
+
 from telegram.ext import (
     Application,
     CommandHandler,
     ContextTypes,
     ConversationHandler,
     MessageHandler,
+    PreCheckoutQueryHandler,
+    ShippingQueryHandler,
     filters,
 )
 
@@ -45,6 +49,9 @@ bot_token = os.getenv("BOT_TOKEN")
 user_table = os.getenv("BOT_TABLE")
 temporary_folder = os.getenv("TMP_FOLDER")
 developer_chat_id = os.getenv("DEVELOPER_CHAT_ID")
+payment_provider_token = os.getenv("PAYMENT_PROVIDER_TOKEN")
+payment_provider_secret = os.getenv("PAYMENT_SECRET")
+
 
 AGREE, PHOTO, REQUEST = range(3)
 
@@ -227,6 +234,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     return ConversationHandler.END
 
+# ##############################################################################
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log the error and send a telegram message to notify the developer."""
@@ -247,6 +255,50 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     error_message = f"$> Error with user {update_str['message']['chat']['id']} at {current_time}"
     
     await context.bot.send_message(chat_id=developer_chat_id, text=error_message)
+
+# ##############################################################################
+
+async def start_without_shipping_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Sends an invoice without shipping-payment."""
+    chat_id = update.message.chat_id
+    title = "Multi Face Remover Donation"
+    description = "A help to avoid ads and limitations in a bot"
+    
+    # select a payload just for you to recognize its the donation from your bot
+    payload = payment_provider_secret
+    
+    currency = "USD"
+    # price in dollars
+    price = 1
+    # price * 100 so as to include 2 decimal points
+    prices = [LabeledPrice("Contribution", price * 100)]
+
+    # optionally pass need_name=True, need_phone_number=True,
+    # need_email=True, need_shipping_address=True, is_flexible=True
+    await context.bot.send_invoice(
+        chat_id, title, description, payload, payment_provider_token, currency, prices
+    )
+    
+
+# after (optional) shipping, it's the pre-checkout
+async def precheckout_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Answers the PreQecheckoutQuery"""
+    query = update.pre_checkout_query
+    # check the payload, is this from your bot?
+    if query.invoice_payload != payment_provider_secret:
+        # answer False pre_checkout_query
+        await query.answer(ok=False, error_message="Something went wrong...")
+    else:
+        await query.answer(ok=True)
+
+
+# finally, after contacting the payment provider...
+async def successful_payment_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Confirms the successful payment."""
+    # do something after successfully receiving payment?
+    await update.message.reply_text("Thank you for your help!")
 
 
 # ##############################################################################
@@ -280,10 +332,16 @@ def main() -> None:
             ],
     )
     
+    # Transformation handlers
     application.add_handler(conv_handler)
     application.add_handler(random_handler)
     
-    # ...and the error handler
+    # Contribute handlers
+    application.add_handler(CommandHandler("contribute", start_without_shipping_callback))
+    application.add_handler(PreCheckoutQueryHandler(precheckout_callback))
+    application.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback))
+    
+    # Generic error handler
     application.add_error_handler(error_handler)
 
     # Run the bot until the user presses Ctrl-C
