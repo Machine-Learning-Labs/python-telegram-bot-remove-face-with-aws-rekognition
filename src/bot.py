@@ -169,7 +169,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     await update.message.reply_photo(
         photo=reference_file,
-        caption="Use the numbers in the to receive a copy with these faces blurred",
+        caption="Use the numbers in the to receive a copy with these faces blurred, or type 'all'",
     )
 
     return REQUEST
@@ -178,6 +178,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     logger.info("User ask a request.")
     
+    # Parse numbers
     image_path=context.user_data["full_file"]
     if not os.path.exists(image_path):
         await update.message.reply_text(
@@ -196,15 +197,23 @@ async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         if int(candidate) in keys:
             valid_numbers.append(int(candidate))
 
+    # Option to use keyword: ALL
+    end_number = context.user_data["faces_count"]
+    if raw_numbers.upper() == 'ALL':
+        valid_numbers = [i for i in range(1, end_number + 1)]
+
+    # Error non valid number
     if not len(valid_numbers):
         await update.message.reply_text(
-            "Give a list number like: 1,2,3... and I'll give you a copy of the photo with these faces blurried."
+            "Give a list number like: 1,2,3... and I'll give you a copy of the photo with these faces blurried.\n"
+            "You can also type: all"
         )
         
         return REQUEST
-        
+    
+    # Everything OK => generate images
     await update.message.reply_text(
-        f"The valid references numbers are: {valid_numbers}"
+        f"The valid references numbers are: {str(valid_numbers)[1:-1]}"
     )
 
     blurried_photo = await generate_blurred(
