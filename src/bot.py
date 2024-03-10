@@ -154,8 +154,6 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await update.message.reply_text(f"Too much faces in this photo")
         return AGREE
 
-    await update.message.reply_text(f"This is the reference to specify")
-
     # generate reference photo
     reference_file, faces_detail = await generate_reference(
         image_path=full_file,
@@ -171,7 +169,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     await update.message.reply_photo(
         photo=reference_file,
-        caption="Use this numbers to receive a copy with the faces blurred",
+        caption="Use the numbers in the to receive a copy with these faces blurred",
     )
 
     return REQUEST
@@ -179,6 +177,14 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     logger.info("User ask a request.")
+    
+    image_path=context.user_data["full_file"]
+    if not os.path.exists(image_path):
+        await update.message.reply_text(
+            "Your photo has been deleted for inactivity, please upload again.\n"
+            "All photographs are automatically deleted on a regular basis."
+        )
+        return REQUEST
 
     valid_numbers = []
     user = update.message.from_user
@@ -190,34 +196,36 @@ async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         if int(candidate) in keys:
             valid_numbers.append(int(candidate))
 
-    if len(valid_numbers):
-        await update.message.reply_text(
-            f"The valid references numbers are: {valid_numbers}"
-        )
-
-        blurried_photo = await generate_blurred(
-            image_path=context.user_data["full_file"],
-            output_path=context.user_data["path_file"],
-            original_filename=context.user_data["file_id"],
-            original_extension=context.user_data["extension_file"],
-            faces_detail=context.user_data["faces_detail"],
-            ids_requested=valid_numbers,
-        )
-
-        await update.message.reply_photo(
-            photo=blurried_photo, caption="Your photo with faces removed!"
-        )
-        
-        # A little advertising
-        context.user_data["counter"] += 1
-        if context.user_data["counter"] % 3 == 0:
-            counter = int(context.user_data["counter"])
-            await update.message.reply_text(f"Happy to help you with those {counter} photos! Do you consider to help me by /contribute ?")
-
-    else:
+    if not len(valid_numbers):
         await update.message.reply_text(
             "Give a list number like: 1,2,3... and I'll give you a copy of the photo with these faces blurried."
         )
+        
+        return REQUEST
+        
+    await update.message.reply_text(
+        f"The valid references numbers are: {valid_numbers}"
+    )
+
+    blurried_photo = await generate_blurred(
+        image_path=context.user_data["full_file"],
+        output_path=context.user_data["path_file"],
+        original_filename=context.user_data["file_id"],
+        original_extension=context.user_data["extension_file"],
+        faces_detail=context.user_data["faces_detail"],
+        ids_requested=valid_numbers,
+    )
+
+    await update.message.reply_photo(
+        photo=blurried_photo,
+        caption="Your photo with faces removed!"
+    )
+    
+    # A little advertising
+    context.user_data["counter"] += 1
+    if context.user_data["counter"] % 3 == 0:
+        counter = int(context.user_data["counter"])
+        await update.message.reply_text(f"Happy to help you with those {counter} photos! Do you consider to help me by /contribute ?")
 
     return REQUEST
 
