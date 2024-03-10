@@ -61,11 +61,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     reply_keyboard = [["Yes", "No"]]
     
     await update.message.reply_text(
-        "Hi! My name is Multi Face Remover Bot.\nI help you to delete faces from photos."
-        "I will change the faces you tell me to blurred areas."
-        "The photos will be automatically deleted and will only be returned to you in this conversation."
+        "Hi! My name is @FaceRemoverBot.\n"
+        "I help you to delete faces from photos.\n"
+        "I will change the faces you tell me to blurred areas.\n\n"
+        "The photos will be automatically deleted and will only be returned to you in this conversation.\n"
         "You will always be the owner and responsible for the photos you send.\n\n"
-        "Send /cancel to stop talking to me.\n\n"
+        "Send /start to read this message.\n"
+        "Send /cancel to stop talking to me.\n"
+        "Send /contribute to support the developer.\n\n"
         "Are ok with this? (Yes or No)",
         reply_markup=ReplyKeyboardMarkup(
             reply_keyboard, one_time_keyboard=True, 
