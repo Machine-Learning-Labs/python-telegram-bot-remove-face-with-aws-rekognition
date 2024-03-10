@@ -64,10 +64,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         "Hi! My name is @FaceRemoverBot.\n"
         "I help you to delete faces from photos.\n"
         "I will change the faces you tell me to blurred areas.\n\n"
-        "The photos will be automatically deleted and will only be returned to you in this conversation.\n"
+        "The photos will be automatically deleted and will only be returned to you in this conversation."
         "You will always be the owner and responsible for the photos you send.\n\n"
         "Send /start to read this message.\n"
         "Send /cancel to stop talking to me.\n"
+        "Send /data to know more about the treatment of data.\n"
         "Send /contribute to support the developer.\n\n"
         "Are ok with this? (Yes or No)",
         reply_markup=ReplyKeyboardMarkup(
@@ -248,8 +249,25 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ConversationHandler.END
 
 
-# ##############################################################################
+# INFO #########################################################################
 
+async def show_data_info(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text(
+        "*Notice on image processing*:\n\n"
+        "This Telegram bot is designed solely for automatic image processing purposes. We want to assure you that your images are treated with the utmost respect for your privacy and security.\n\n"
+        "- *Data Handling:* We do not store, share, or forward any images you send through this bot to any third party or individual. Your images are processed only for the intended analysis and are immediately deleted thereafter.\n"
+        "- *Confidentiality:* Your images and any data generated from them are kept confidential and are not used for any purposes other than the automated transformations provided by this bot.\n"
+        "- *Data Security:* While we take every possible precaution to safeguard your data, please be aware that no online platform is completely immune to potential security risks. By using this bot, you acknowledge and accept this inherent risk.\n"
+        "- *No Guarantees:* While we strive for accurate and reliable image analysis, we cannot guarantee the absolute accuracy or completeness of the results. It is advisable to use this bot's outputs as a reference and not as the sole basis for important decisions.\n\n"
+        "By using this Telegram bot, you consent to the terms outlined in this disclaimer. If you have any concerns about your privacy or the handling of your data, please refrain from using the bot. Your trust and privacy are of utmost importance to us.\n",
+        parse_mode="markdown"
+    )
+
+# ERROR ########################################################################
+
+async def ask_for_permission(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("I need your explicit permission to work, type or press /start")
+    
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log the error and send a telegram message to notify the developer."""
@@ -274,8 +292,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     await context.bot.send_message(chat_id=developer_chat_id, text=error_message)
 
 
-# ##############################################################################
-
+# PAYMENT ######################################################################
 
 async def start_without_shipping_callback(
     update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -338,7 +355,7 @@ def main() -> None:
     # Create the Application and pass it your bot's token.
     application = Application.builder().token(bot_token).build()
 
-    random_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), give_excuse)
+    #random_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), give_excuse)
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
@@ -356,18 +373,15 @@ def main() -> None:
         ],
     )
 
-    # Transformation handlers
+    # Business Logic handlers
     application.add_handler(conv_handler)
-    application.add_handler(random_handler)
+    application.add_handler(MessageHandler(filters.PHOTO, ask_for_permission))
+    application.add_handler(CommandHandler("data", show_data_info))
 
     # Contribute handlers
-    application.add_handler(
-        CommandHandler("contribute", start_without_shipping_callback)
-    )
+    application.add_handler(CommandHandler("contribute", start_without_shipping_callback))
     application.add_handler(PreCheckoutQueryHandler(precheckout_callback))
-    application.add_handler(
-        MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback)
-    )
+    application.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback))
 
     # Generic error handler
     application.add_error_handler(error_handler)
