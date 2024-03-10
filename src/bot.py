@@ -5,6 +5,7 @@ import re
 import html
 import json
 import boto3
+import random
 import logging
 import botocore
 import traceback
@@ -37,7 +38,6 @@ from telegram.ext import (
     filters,
 )
 
-
 # Enable logging
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -51,6 +51,9 @@ developer_chat_id = os.getenv("DEVELOPER_CHAT_ID")
 payment_provider_token = os.getenv("PAYMENT_PROVIDER_TOKEN")
 payment_provider_secret = os.getenv("PAYMENT_SECRET")
 
+donation_stripe_link = os.getenv("DONATION_STRIPE_LINK")
+donation_buymeacoffe_link = os.getenv("DONATION_BUYMEACOFFE_LINK")
+
 table_name = os.getenv("BOT_TABLE")
 table = boto3.resource('dynamodb').Table(table_name)
 
@@ -59,6 +62,8 @@ AGREE, PHOTO, REQUEST = range(3)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Starts the conversation and asks the user for authorization."""
+    
+    logger.info("start")
     reply_keyboard = [["Yes", "No"]]
 
     await update.message.reply_text(
@@ -67,10 +72,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         "I will change the faces you tell me to blurred areas.\n\n"
         "The photos will be automatically deleted and will only be returned to you in this conversation."
         "You will always be the owner and responsible for the photos you send.\n\n"
-        "Send /start to read this message.\n"
-        "Send /cancel to stop talking to me.\n"
-        "Send /data to know more about the treatment of data.\n"
-        "Send /contribute to donate 1 USD to support this bot development.\n\n"
+        "Say /start to read this message.\n"
+        "Say /cancel to stop talking to me.\n"
+        "Say /data to know more about the treatment of data.\n"
+        "Say /donate to support with 1 USD to support this bot development.\n\n"
+        "Say /contribute to know other ways to help and avoid limitations or advertising\n"
         "Are ok with this? (Reply or press: Yes or No)",
         reply_markup=ReplyKeyboardMarkup(
             reply_keyboard,
@@ -84,6 +90,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def agree(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the selected answer and asks for a photo."""
+    
+    logger.info("agree")
+    
     user = update.message.from_user
 
     logger.info(user)
@@ -124,6 +133,7 @@ async def agree(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Stores the photo"""
 
+    logger.info("photo")
     logger.info("User send a photo.")
     
     if not "choice" in context.user_data:
@@ -202,6 +212,8 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    
+    logger.info('request')
     logger.info("User ask a request.")
     
     # Parse numbers
@@ -267,12 +279,15 @@ async def request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     # A little advertising
     if context.user_data["counter"] % 3 == 0:
         counter = int(context.user_data["counter"])
-        await update.message.reply_text(f"Happy to help you with those {counter} photos!\nDo you consider to help me by /contribute ?")
+        await update.message.reply_text(f"Happy to help you with those {counter} photos!\nDo you consider to help me by /donate ?")
 
     return REQUEST
 
 
 async def give_excuse(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    
+    logger.info('give_excuse')
+    
     if (
         context.user_data
         and context.user_data["choice"]
@@ -286,6 +301,8 @@ async def give_excuse(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Cancels and ends the conversation."""
+    
+    logger.info('cancel')
 
     context.user_data["choice"] = False
     user = update.message.from_user
@@ -302,6 +319,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 # INFO #########################################################################
 
 async def show_data_info(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    
+    logger.info('show_data_info')
     await update.message.reply_text(
         "*Notice on image processing*:\n\n"
         "This Telegram bot is designed solely for automatic image processing purposes. We want to assure you that your images are treated with the utmost respect for your privacy and security.\n\n"
@@ -316,11 +335,14 @@ async def show_data_info(update: object, context: ContextTypes.DEFAULT_TYPE) -> 
 # ERROR ########################################################################
 
 async def ask_for_permission(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info('ask_for_permission')
     await update.message.reply_text("I need your explicit permission to work, type or press /start")
     
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log the error and send a telegram message to notify the developer."""
+    
+    logger.info('error_handler')
 
     now = datetime.now()
     current_time = now.strftime("%H:%M:%S")
@@ -342,29 +364,72 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     await context.bot.send_message(chat_id=developer_chat_id, text=error_message)
 
 
-# PAYMENT ######################################################################
+# DONATE #######################################################################
+
+async def mention_other_ways(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    
+    logger.info('mention_other_ways')
+    chat_id = update.message.chat_id
+    
+    random_gifs=[
+        'https://media1.giphy.com/media/R6gvnAxj2ISzJdbA63/giphy.gif',
+        'https://media0.giphy.com/media/aPN2C7ZONEwEe5PNXj/giphy.gif',
+        'https://media3.giphy.com/media/1oibnUaGm5czffacN4/giphy.gif',
+        'https://media3.giphy.com/media/iaRIvwgdg5qwT40iDL/giphy.gif',
+        'https://media1.giphy.com/media/UQOtfc9uIXVv9IidCD/giphy.gif',
+        'https://media4.giphy.com/media/lqMxLjlpyAaAjfJ9yj/giphy.gif',
+        'https://media4.giphy.com/media/RghVmNiqzUNRDsjw8k/giphy.gif',
+        'https://media1.giphy.com/media/3ohzgMvITPaFeQaSfm/giphy.gif',
+        'https://media2.giphy.com/media/dBTJJqrcXMBgMhyE0d/giphy.gif',
+        'https://media2.giphy.com/media/Wz2hmNYVM2LtGOGTAD/giphy.gif',
+    ]
+    
+    await update.message.reply_text(f"Thanks for considering help!")
+    await context.bot.send_document(
+        chat_id=chat_id,
+        document=random.choice(random_gifs))
+    
+    await update.message.reply_text(f"By the moment the alternative ways to donate are:")
+    await update.message.reply_text(f"Stripe donation link: {donation_stripe_link}")
+    await update.message.reply_text(f"BuyMe a Coffe Donation link: {donation_buymeacoffe_link}")
+
 
 async def start_without_shipping_callback(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """Sends an invoice without shipping-payment."""
+    logger.info('start_without_shipping_callback')
+    
     chat_id = update.message.chat_id
-    title = "Multi Face Remover Donation"
-    description = "A help to avoid ads and limitations in a bot"
+    title = "Multi Face Remover 1 USD Donation"
+    description = "Your privacy is our top priority.\n\nWhen you make a donation to support our identity protection bot, you can be confident that your transaction is secure. We've partnered with trusted platforms like Stripe and Telegram to manage your donation securely. Rest assured, your financial data is never stored on our platform, and the developer receives no personal or financial information from your payment. It's a one-time donation, and your contribution goes directly towards improving and maintaining the bot's services. Your support means everything to us, and we're here to ensure your identity remains safeguarded."
 
     # select a payload just for you to recognize its the donation from your bot
     payload = payment_provider_secret
 
-    currency = "USD"
     # price in dollars
+    currency = "USD"
     price = 1
+    
     # price * 100 so as to include 2 decimal points
     prices = [LabeledPrice("Contribution", price * 100)]
 
-    # optionally pass need_name=True, need_phone_number=True,
-    # need_email=True, need_shipping_address=True, is_flexible=True
+    # optionally pass 
+    # need_name=True
+    # need_phone_number=True,
+    # need_email=True
+    # need_shipping_address=True
+    # is_flexible=True
     await context.bot.send_invoice(
-        chat_id, title, description, payload, payment_provider_token, currency, prices
+        chat_id,
+        title,
+        description,
+        payload,
+        payment_provider_token,
+        currency,
+        prices
     )
 
 
@@ -373,6 +438,8 @@ async def precheckout_callback(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """Answers the PreQecheckoutQuery"""
+    logger.info('precheckout_callback')
+    
     query = update.pre_checkout_query
     # check the payload, is this from your bot?
     if query.invoice_payload != payment_provider_secret:
@@ -387,6 +454,8 @@ async def successful_payment_callback(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """Confirms the successful payment."""
+    logger.info('successful_payment_callback')
+    
     # do something after successfully receiving payment?
     await update.message.reply_text("Thank you for your help!")
     context.user_data["counter"] = -99
@@ -428,8 +497,9 @@ def main() -> None:
     application.add_handler(MessageHandler(filters.PHOTO, ask_for_permission))
     application.add_handler(CommandHandler("data", show_data_info))
 
-    # Contribute handlers
-    application.add_handler(CommandHandler("contribute", start_without_shipping_callback))
+    # Donation handlers
+    application.add_handler(CommandHandler("contribute", mention_other_ways))
+    application.add_handler(CommandHandler("donate", start_without_shipping_callback))
     application.add_handler(PreCheckoutQueryHandler(precheckout_callback))
     application.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback))
 
