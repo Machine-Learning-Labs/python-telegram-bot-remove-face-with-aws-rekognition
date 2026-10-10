@@ -5,4 +5,4 @@ Pillow==9.5.0
 timeloop==1.0.2
 python-dateutil==2.8.2
 python-dotenv==0.21.1
-python-telegram-bot==20.3
+python-telegram-bot==22.8
