@@ -4,5 +4,5 @@ jmespath==1.0.1
 Pillow==10.3.0
 timeloop==1.0.2
 python-dateutil==2.9.0.post0
-python-dotenv==0.21.1
+python-dotenv==1.2.4
 python-telegram-bot==22.8
